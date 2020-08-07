@@ -18,6 +18,11 @@
 #elif defined(__aarch64__)
 
 #define ZX_TLS_STACK_GUARD_OFFSET (-0x10)
+#define ZX_TLS_UNSAFE_SP_OFFSET (-0x17)
+
+#elif defined(__riscv)
+
+#define ZX_TLS_STACK_GUARD_OFFSET (-0x10)
 #define ZX_TLS_UNSAFE_SP_OFFSET (-0x8)
 
 #else
