@@ -10,10 +10,6 @@
 
 __BEGIN_CDECLS
 
-// Get and set the thread pointer.
-static inline void* zxr_tp_get(void);
-static inline void zxr_tp_set(zx_handle_t self, void* tp);
-
 // These are used in very early and low-level places where most kinds
 // of instrumentation are not safe.
 #ifdef __clang__
@@ -78,6 +74,15 @@ ZXR_TLS_INLINE static inline void zxr_tp_set(zx_handle_t self, void* tp) {
   if (status != ZX_OK)
     __builtin_trap();
 }
+
+#elif defined(__riscv)
+
+__NO_SAFESTACK static inline void* zxr_tp_get(void) {
+  return __builtin_thread_pointer();
+}
+
+// zxr_tp_set is defined in runtime/zxr_tp_set.S because of a LLVM bug
+void zxr_tp_set(zx_handle_t self, void* tp);
 
 #else
 

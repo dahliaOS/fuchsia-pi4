@@ -207,6 +207,16 @@ __asm__(
     "ret\n"
     ".popsection\n");
 
+#elif defined(__riscv)
+
+__asm__(
+    ".pushsection .text, \"ax\", %progbits\n"
+    ".global debug_break\n"
+    "debug_break:\n"
+    "ebreak\n"
+    "ret\n"
+    ".popsection\n");
+
 #endif
 
 __NO_SAFESTACK static bool should_break_on_load(void) {
@@ -354,9 +364,7 @@ __asm__(".weakref __asan_memset,__libc_memset");
 #endif
 
 __NO_SAFESTACK NO_ASAN static void decode_vec(ElfW(Dyn) * v, size_t* a, size_t cnt) {
-  size_t i;
-  for (i = 0; i < cnt; i++)
-    a[i] = 0;
+  memset(a, 0, cnt*sizeof(*a));
   for (; v->d_tag; v++)
     if (v->d_tag - 1 < cnt - 1) {
       a[0] |= 1UL << v->d_tag;
@@ -2082,6 +2090,8 @@ __NO_SAFESTACK NO_ASAN static dl_start_return_t __dls3(void* start_arg) {
 #define DWARG_REGNO_TP 36  // TPIDR_EL0
 #elif defined(__x86_64__)
 #define DWARG_REGNO_TP 58  // %fs.base
+#elif defined(__riscv)
+#define DWARG_REGNO_TP 58  // TODO
 #endif
 
   // This has to be inside some function so that it can use extended asm to
@@ -2855,6 +2865,9 @@ void _dl_locked_report_globals(sanitizer_memory_snapshot_callback_t* callback, v
   "ldr w16, [x16, #:lo12:_dynlink_runtime]\n" \
   "cbnz w16, _dynlink_sancov_" name           \
   "\n"                                        \
+  "ret\n"
+#elif defined(__riscv)
+#define SANCOV_STUB_ASM_BODY(name)            \
   "ret\n"
 #else
 #error unsupported architecture
