@@ -1240,7 +1240,7 @@ zbi("netboot") {
   }
 }
 
-if (target_cpu != "arm64" && !use_vboot) {
+if (target_cpu != "arm64" && target_cpu != "riscv64" && !use_vboot) {
   # TODO(surajmalhotra): Remove this target once SDK no longer depends on it.
   vboot("vboot") {
     testonly = true
