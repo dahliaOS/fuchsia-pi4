@@ -4,3 +4,5 @@ vim2
 imx8mevk
 [x64]
 pc
+[riscv64]
+qemu

@@ -10,6 +10,7 @@ zx_library("zbi") {
   visibility = [
     "./*",
     "//zircon/kernel/target/arm64/boot-shim:*",
+    "//zircon/kernel/target/riscv64/boot-shim:*",
     "//zircon/kernel/target/pc/multiboot:*",
   ]
 
