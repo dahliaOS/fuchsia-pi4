@@ -54,6 +54,8 @@ if (current_toolchain == default_toolchain) {
       "-fno-sanitize=safe-stack",
     ]
 
+    cflags += [ "-fno-stack-protector" ]
+
     # Assembly code needs to use `#if __has_feature(...)` so make sure
     # it always sees all the same `-fsanitize=...` flags and the like.
     asmflags = cflags
