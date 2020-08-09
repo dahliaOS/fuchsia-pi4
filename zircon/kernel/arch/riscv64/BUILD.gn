@@ -53,5 +53,6 @@ if (toolchain.environment == "physmem" ||
   # This is kept consistent between the kernel proper and phys
   # so (pure PIC) code should be callable from the kernel proper.
   config("abi") {
+    cflags = [ "-ffixed-x31" ] # We reserve s11 for the per-cpu datastructure
   }
 }
