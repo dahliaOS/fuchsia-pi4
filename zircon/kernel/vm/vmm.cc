@@ -55,7 +55,7 @@ zx_status_t vmm_page_fault_handler(vaddr_t addr, uint flags) {
 
 #if TRACE_PAGE_FAULT || LOCAL_TRACE
   Thread* current_thread = Thread::Current::Get();
-  TRACEF("thread %s va %#" PRIxPTR ", flags 0x%x\n", current_thread->name, addr, flags);
+  TRACEF("thread %s va %#" PRIxPTR ", flags 0x%x\n", current_thread->name(), addr, flags);
 #endif
 
   // get the address space object this pointer is in
