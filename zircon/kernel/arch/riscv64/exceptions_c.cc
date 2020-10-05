@@ -14,6 +14,7 @@
 #include <zircon/syscalls/exception.h>
 #include <arch/regs.h>
 #include <zircon/types.h>
+#include <syscalls/syscalls.h>
 
 #include <arch/arch_ops.h>
 #include <arch/exception.h>
@@ -154,6 +155,16 @@ static void riscv64_illegal_instruction_handler(long cause, struct iframe_t *fra
   frame->status |= RISCV64_CSR_SSTATUS_FS_INITIAL;
 }
 
+static void riscv64_syscall_handler(struct iframe_t *frame) {
+  frame->epc = frame->epc + 0x4; // Skip the ecall instruction
+
+  struct syscall_result ret = riscv64_syscall_dispatcher(frame);
+  frame->a0 = ret.status;
+  if (ret.is_signaled) {
+    Thread::Current::ProcessPendingSignals(GeneralRegsSource::Iframe, frame);
+  }
+}
+
 extern "C" syscall_result riscv64_syscall_dispatcher(struct iframe_t *frame);
 
 extern "C" void riscv64_exception_handler(long cause, struct iframe_t *frame) {
@@ -194,6 +205,9 @@ extern "C" void riscv64_exception_handler(long cause, struct iframe_t *frame) {
         break;
       case RISCV64_EXCEPTION_ILLEGAL_INS:
         riscv64_illegal_instruction_handler(cause, frame);
+        break;
+      case RISCV64_EXCEPTION_ENV_CALL_U_MODE:
+        riscv64_syscall_handler(frame);
         break;
       default:
         fatal_exception(cause, frame);
