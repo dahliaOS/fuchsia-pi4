@@ -1,0 +1,20 @@
+# Copyright 2019 The Fuchsia Authors
+#
+# Use of this source code is governed by a MIT-style
+# license that can be found in the LICENSE file or at
+# https://opensource.org/licenses/MIT
+
+zx_library("riscv_plic") {
+  kernel = true
+  sources = [
+    "riscv_plic.cc",
+  ]
+  deps = [
+    "$zx/kernel/dev/interrupt",
+    "$zx/kernel/dev/pdev",
+    "$zx/kernel/dev/pdev/interrupt",
+    "$zx/kernel/lib/init",
+    "$zx/kernel/lib/ktrace",
+    "$zx/kernel/lib/root_resource_filter",
+  ]
+}
