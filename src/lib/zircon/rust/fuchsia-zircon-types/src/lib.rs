@@ -687,6 +687,13 @@ pub struct zx_packet_guest_mem_t {
     pub data: u64,
 }
 
+#[cfg(target_arch = "riscv64")]
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct zx_packet_guest_mem_t {
+    pub addr: zx_gpaddr_t,
+}
+
 pub const X86_MAX_INST_LEN: usize = 15;
 
 #[cfg(target_arch = "x86_64")]
