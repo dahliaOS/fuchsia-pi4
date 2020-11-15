@@ -44,7 +44,12 @@
             "arm64": {
               "description": "Files for the arm64 architecture",
               "$ref": "#/definitions/fileGroup"
+            },
+            "riscv64": {
+              "description": "Files for the riscv64 architecture",
+              "$ref": "#/definitions/fileGroup"
             }
+
           },
           "additionalProperties": false,
           "minProperties": 1,

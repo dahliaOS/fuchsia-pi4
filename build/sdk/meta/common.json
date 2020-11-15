@@ -45,6 +45,7 @@
       "type": "string",
       "enum": [
         "arm64",
+        "riscv64",
         "x64"
       ]
     }

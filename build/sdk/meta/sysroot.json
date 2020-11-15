@@ -39,6 +39,10 @@
             "arm64": {
               "description": "arm64 version",
               "$ref": "#/definitions/version"
+            },
+            "riscv64": {
+              "description": "arm64 version",
+              "$ref": "#/definitions/version"
             }
           },
           "additionalProperties": false,

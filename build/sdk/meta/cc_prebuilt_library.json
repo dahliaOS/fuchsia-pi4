@@ -66,6 +66,10 @@
             "arm64": {
               "description": "Binaries for the arm64 architecture",
               "$ref": "#/definitions/binaryGroup"
+            },
+            "riscv64": {
+              "description": "Binaries for the riscv64 architecture",
+              "$ref": "#/definitions/binaryGroup"
             }
           },
           "additionalProperties": false,
