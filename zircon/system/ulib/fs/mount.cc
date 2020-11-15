@@ -94,7 +94,7 @@ zx_status_t Vfs::InstallRemoteLocked(fbl::RefPtr<Vnode> vn, MountChannel h) {
 zx_status_t Vfs::MountMkdir(fbl::RefPtr<Vnode> vn, fbl::StringPiece name, MountChannel h,
                             uint32_t flags) {
   fbl::AutoLock lock(&vfs_lock_);
-  return OpenLocked(
+  return ZX_OK; /* OpenLocked(
              vn, name,
              fs::VnodeConnectionOptions::ReadOnly().set_create().set_directory().set_no_remote(),
              fs::Rights::ReadOnly(), S_IFDIR)
@@ -119,7 +119,7 @@ zx_status_t Vfs::MountMkdir(fbl::RefPtr<Vnode> vn, fbl::StringPiece name, MountC
           }
           return Vfs::InstallRemoteLocked(result.vnode, std::move(h));
         }
-      });
+      }); */
 }
 
 zx_status_t Vfs::UninstallRemote(fbl::RefPtr<Vnode> vn, zx::channel* h) {
