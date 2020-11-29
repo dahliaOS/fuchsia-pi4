@@ -43,7 +43,7 @@ aggregate_manifest("legacy-aux") {
     ":lib.c",
     ":lib.c.asan",
     ":lib.c.asan-ubsan",
-    ":lib.c.profile",
+#    ":lib.c.profile",
     ":lib.c.sancov",
     ":lib.c.ubsan",
     ":lib.c.ubsan-sancov",
