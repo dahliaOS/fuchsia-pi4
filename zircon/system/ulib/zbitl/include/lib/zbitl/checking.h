@@ -77,7 +77,8 @@ fitx::result<std::string_view> CheckComplete(Zbi&& zbi,
                                              = ZBI_TYPE_KERNEL_ARM64
 #elif defined(__x86_64__)
                                              = ZBI_TYPE_KERNEL_X64
-
+#elif defined(__riscv)
+                                             = ZBI_TYPE_KERNEL_RISCV64
 #endif
                                              ,
                                              uint32_t bootfs_type = ZBI_TYPE_STORAGE_BOOTFS) {
