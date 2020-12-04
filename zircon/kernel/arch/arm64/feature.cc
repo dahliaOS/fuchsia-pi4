@@ -378,8 +378,8 @@ void arm64_feature_init() {
   arm64_get_cache_info(&(cache_info[cpu]));
 
   // check to make sure implementation supports 16 bit asids
-  uint64_t mmfr0 = __arm_rsr64("id_aa64mmfr0_el1");
-  ASSERT((mmfr0 & ARM64_MMFR0_ASIDBITS_MASK) == ARM64_MMFR0_ASIDBITS_16);
+  //uint64_t mmfr0 = __arm_rsr64("id_aa64mmfr0_el1");
+  //ASSERT((mmfr0 & ARM64_MMFR0_ASIDBITS_MASK) == ARM64_MMFR0_ASIDBITS_16);
 }
 
 static void print_feature() {
