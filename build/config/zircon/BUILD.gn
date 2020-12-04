@@ -179,6 +179,10 @@ config("compiler") {
         "-mcx16",
         "-march=x86-64",
       ]
+    } else if (current_cpu == "riscv64") {
+      compiler_flags += [
+        "-mno-relax",
+      ]
     }
   } else if (current_os == "win") {
     # This enables build ID-like PDB UUIDs without timestamp.
