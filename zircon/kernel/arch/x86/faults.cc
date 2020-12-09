@@ -261,6 +261,12 @@ static zx_status_t x86_pfe_handler(iframe_t* frame) {
   uint64_t error_code = frame->err_code;
   vaddr_t va = x86_get_cr2();
 
+  uint64_t pfr = Thread::Current::Get()->arch().page_fault_resume;
+  if (unlikely(!(error_code & PFEX_U)) && unlikely(!pfr)) {
+    // Any page fault in kernel mode that's not during user-copy is a bug.
+    exception_die(frame, "page fault in kernel mode\n");
+  }
+
   /* reenable interrupts */
   PreemptionState& preemption_state = Thread::Current::preemption_state();
   preemption_state.PreemptReenableNoResched();
@@ -302,7 +308,6 @@ static zx_status_t x86_pfe_handler(iframe_t* frame) {
 
   /* Check if the page fault handler should be skipped. It is skipped if there's a page_fault_resume
    * address and the highest bit is 0. */
-  uint64_t pfr = Thread::Current::Get()->arch().page_fault_resume;
   if (unlikely(pfr && !BIT_SET(pfr, X86_PFR_RUN_FAULT_HANDLER_BIT))) {
     // Need to reconstruct the canonical resume address by ensuring it is correctly sign extended.
     // Double check the bit before X86_PFR_RUN_FAULT_HANDLER_BIT was set (indicating kernel
