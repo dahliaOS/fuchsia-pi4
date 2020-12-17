@@ -1197,6 +1197,17 @@ zx_status_t VmObjectPaged::SupplyPages(uint64_t offset, uint64_t len, VmPageSpli
   return cow_pages_locked()->SupplyPagesLocked(offset, len, pages);
 }
 
+zx_status_t VmObjectPaged::MarkExecutable() {
+  Guard<Mutex> guard{&lock_};
+
+  if (cache_policy_ != ARCH_MMU_FLAG_CACHED) {
+    return ZX_ERR_BAD_STATE;
+  }
+  cow_pages_locked()->MarkExecutableLocked();
+
+  return ZX_OK;
+}
+
 zx_status_t VmObjectPaged::SetMappingCachePolicy(const uint32_t cache_policy) {
   // Is it a valid cache flag?
   if (cache_policy & ~ZX_CACHE_POLICY_MASK) {
@@ -1211,6 +1222,7 @@ zx_status_t VmObjectPaged::SetMappingCachePolicy(const uint32_t cache_policy) {
   // 3) vmo has no mappings
   // 4) vmo has no children
   // 5) vmo is not a child
+  // 6) vmo has no executable handles.
   // Counting attributed pages does a sufficient job of checking for committed pages since we also
   // require no children and no parent, so attribution == precisely our pages.
   if (cow_pages_locked()->AttributedPagesInRangeLocked(0, size_locked()) != 0 &&
@@ -1238,6 +1250,9 @@ zx_status_t VmObjectPaged::SetMappingCachePolicy(const uint32_t cache_policy) {
     return ZX_ERR_BAD_STATE;
   }
   if (parent_) {
+    return ZX_ERR_BAD_STATE;
+  }
+  if (cow_pages_locked()->IsExecutableLocked()) {
     return ZX_ERR_BAD_STATE;
   }
 

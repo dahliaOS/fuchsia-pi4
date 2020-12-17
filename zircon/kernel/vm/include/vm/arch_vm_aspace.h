@@ -112,4 +112,21 @@ class ArchVmAspaceInterface {
   virtual paddr_t arch_table_phys() const = 0;
 };
 
+// Per arch base class API to encapsulate routines for maintaining icache consistency.
+class ArchVmICacheConsistencyManagerInterface {
+ public:
+  ArchVmICacheConsistencyManagerInterface() = default;
+  virtual ~ArchVmICacheConsistencyManagerInterface() = default;
+
+  // Indicate that the given physical address range may have modified data. The given range is not
+  // actually guaranteed to be synced until |Finish| is called.
+  virtual void SyncPAddr(paddr_t start, size_t len) = 0;
+
+  // Perform any final synchronization operations. This may be used by an implementation to
+  // efficiently batch operations, and no addresses should be considered actually synchronized
+  // until this returns.
+  // This is automatically called on destruction.
+  virtual void Finish() = 0;
+};
+
 #endif  // ZIRCON_KERNEL_VM_INCLUDE_VM_ARCH_VM_ASPACE_H_

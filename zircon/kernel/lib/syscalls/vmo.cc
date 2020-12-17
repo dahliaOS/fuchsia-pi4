@@ -269,8 +269,17 @@ zx_status_t sys_vmo_replace_as_executable(zx_handle_t handle, zx_handle_t vmex,
 
   if (vmex_status != ZX_OK)
     return vmex_status;
-  if (source->dispatcher()->get_type() != ZX_OBJ_TYPE_VMO)
+
+  auto dispatcher = source->dispatcher();
+  fbl::RefPtr<VmObjectDispatcher> vmo = DownCastDispatcher<VmObjectDispatcher>(&dispatcher);
+
+  if (!vmo)
     return ZX_ERR_BAD_HANDLE;
+
+  zx_status_t status = vmo->MarkExecutable();
+  if (status != ZX_OK) {
+    return ZX_ERR_BAD_STATE;
+  }
 
   return out->dup(source, source->rights() | ZX_RIGHT_EXECUTE);
 }

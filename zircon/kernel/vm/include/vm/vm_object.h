@@ -441,6 +441,13 @@ class VmObject : public VmHierarchyBase,
 
   static bool eviction_promote_no_clones() { return eviction_promote_no_clones_; }
 
+  // Indicate that this VMO holds executable data and any committed pages need to have any
+  // necessary synchronization applied to them. Any explicit modifications of the VMO from this
+  // point require calling `SyncCache` to synchronize, however the VMO is obligated to perform
+  // synchronization in the future if it swaps or changes the backing physical pages of the existing
+  // data.
+  virtual zx_status_t MarkExecutable() { return ZX_ERR_NOT_SUPPORTED; }
+
  protected:
   explicit VmObject(fbl::RefPtr<VmHierarchyState> root_lock);
 

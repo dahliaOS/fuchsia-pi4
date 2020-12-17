@@ -23,6 +23,15 @@ zx_status_t zx_vmo_replace_as_executable(zx_handle_t handle,
 `zx_vmo_replace_as_executable()` creates a replacement for *handle*, referring
 to the same underlying VM object, adding the right **ZX_RIGHT_EXECUTE**.
 
+If the contents of the VM object should be modified after calling
+`zx_vmo_replace_as_executable()` then it is the user responsibility to
+synchronize any instructions caches using `zx_cache_flush()` or
+`zx_vmo_op_range()`.
+
+Only VMOs with the `ZX_CACHE_POLICY_CACHED` may have their handles replaced as
+executable and once a VMO has had a handle made executable it may never have its
+cache policy changed.
+
 *handle* is always invalidated.
 
 *vmex* may currently be **ZX_HANDLE_INVALID** to ease migration of new code,
@@ -49,6 +58,8 @@ of failure, a negative error value is returned.
 **ZX_ERR_NO_MEMORY**  Failure due to lack of memory.
 There is no good way for userspace to handle this (unlikely) error.
 In a future build this error will no longer occur.
+
+**ZX_ERR_BAD_STATE** VMO referenced by *handle* has incompatible cache policy.
 
 ## SEE ALSO
 

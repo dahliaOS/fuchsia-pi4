@@ -74,6 +74,8 @@ class VmObjectDispatcher final : public SoloDispatcher<VmObjectDispatcher, ZX_DE
   const fbl::RefPtr<VmObject>& vmo() const { return vmo_; }
   zx_koid_t pager_koid() const { return pager_koid_; }
 
+  zx_status_t MarkExecutable() { return vmo_->MarkExecutable(); }
+
  private:
   explicit VmObjectDispatcher(fbl::RefPtr<VmObject> vmo, zx_koid_t pager_koid);
   // The 'const' here is load bearing; we give a raw pointer to

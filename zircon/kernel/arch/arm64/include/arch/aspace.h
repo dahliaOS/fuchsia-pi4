@@ -15,6 +15,7 @@
 #include <fbl/canary.h>
 #include <kernel/mutex.h>
 #include <vm/arch_vm_aspace.h>
+#include <vm/physmap.h>
 
 class ArmArchVmAspace final : public ArchVmAspaceInterface {
  public:
@@ -139,10 +140,41 @@ class ArmArchVmAspace final : public ArchVmAspaceInterface {
   const size_t size_ = 0;
 };
 
+// TODO: Take advantage of information in the CTR to determine if icache is PIPT and whether
+// cleaning is required.
+class ArmVmICacheConsistencyManager final : public ArchVmICacheConsistencyManagerInterface {
+ public:
+  ArmVmICacheConsistencyManager() = default;
+  ~ArmVmICacheConsistencyManager() override { Finish(); }
+
+  void SyncPAddr(paddr_t start, size_t len) override {
+    // use the physmap to clean the range to PoU, which is the point of where the instruction cache
+    // pulls from. Cleaning to PoU is potentially cheaper than cleaning to PoC, which is the default
+    // of arch_clean_cache_range.
+    arch_clean_cache_range_pou(reinterpret_cast<vaddr_t>(paddr_to_physmap(start)), len);
+    // We can batch the icache invalidate and just perform it once at the end.
+    need_invalidate_ = true;
+  }
+  void Finish() override {
+    if (!need_invalidate_) {
+      return;
+    }
+    // Under the assumption our icache is VIPT then as we do not know all the virtual aliases of the
+    // sections we cleaned our only option is to dump the entire icache.
+    asm volatile("ic ialluis" ::: "memory");
+    __isb(ARM_MB_SY);
+    need_invalidate_ = false;
+  }
+
+ private:
+  bool need_invalidate_ = false;
+};
+
 static inline paddr_t arm64_vttbr(uint16_t vmid, paddr_t baddr) {
   return static_cast<paddr_t>(vmid) << 48 | baddr;
 }
 
 using ArchVmAspace = ArmArchVmAspace;
+using ArchVmICacheConsistencyManager = ArmVmICacheConsistencyManager;
 
 #endif  // ZIRCON_KERNEL_ARCH_ARM64_INCLUDE_ARCH_ASPACE_H_

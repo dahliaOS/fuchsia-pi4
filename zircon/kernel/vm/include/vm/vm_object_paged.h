@@ -238,6 +238,8 @@ class VmObjectPaged final : public VmObject {
   // pager-backed queue, so that they can be evicted first.
   void PromoteForReclamation();
 
+  zx_status_t MarkExecutable() override;
+
  private:
   // private constructor (use Create())
   VmObjectPaged(uint32_t options, fbl::RefPtr<VmHierarchyState> root_state);

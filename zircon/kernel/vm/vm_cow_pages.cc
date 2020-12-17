@@ -2669,6 +2669,9 @@ zx_status_t VmCowPages::SupplyPagesLocked(uint64_t offset, uint64_t len, VmPageS
   uint64_t new_pages_start = offset;
   uint64_t new_pages_len = 0;
   zx_status_t status = ZX_OK;
+
+  ArchVmICacheConsistencyManager cm;
+
   while (!pages->IsDone()) {
     VmPageOrMarker src_page = pages->Pop();
 
@@ -2677,6 +2680,10 @@ zx_status_t VmCowPages::SupplyPagesLocked(uint64_t offset, uint64_t len, VmPageS
     // explicit markers to actually resolve the pager fault.
     if (src_page.IsEmpty()) {
       src_page = VmPageOrMarker::Marker();
+    }
+
+    if (executable_ && src_page.IsPage()) {
+      cm.SyncPAddr(src_page.Page()->paddr(), PAGE_SIZE);
     }
 
     // Defer individual range updates so we can do them in blocks.
@@ -2898,6 +2905,27 @@ bool VmCowPages::EvictPage(vm_page_t* page, uint64_t offset) {
   IncrementHierarchyGenerationCountLocked();
   // |page| is now owned by the caller.
   return true;
+}
+
+void VmCowPages::MarkExecutableLocked() {
+  // As pages may be retrieved from any parent we need to synchronize not just the pages in this
+  // node, but all of our parents. Although we could just sync the pages that are visible up the
+  // hierarchy it's more efficient to have a single 'has been made' executable flag that prevents
+  // us from re-syncing the pages in parent every time a new executable child vmo is created.
+  VmCowPages* cur = this;
+  AssertHeld(cur->lock_ref());
+
+  ArchVmICacheConsistencyManager cm;
+  // If current is already executable then that means it (and its parents) have synced, and
+  // maintained sync, on all their pages, and so we can safely abort.
+  while (cur && !cur->executable_) {
+    cur->LookupLocked(0, cur->size_locked(), [&cm](uint64_t offset, paddr_t pa) {
+      cm.SyncPAddr(pa, PAGE_SIZE);
+      return ZX_ERR_NEXT;
+    });
+    cur->executable_ = true;
+    cur = cur->parent_.get();
+  }
 }
 
 bool VmCowPages::DebugValidatePageSplitsLocked() const {

@@ -73,8 +73,8 @@ above, or *cache_policy* contains an invalid mix of cache policy flags.
 physical memory.
 
 **ZX_ERR_BAD_STATE** Cache policy cannot be changed because the VMO is presently
-mapped, has children, is a child itself, has pinned pages, or has committed pages
-and the VMO is currently not cached.
+mapped, has children, is a child itself, has pinned pages, has executable
+handle, or has committed pages and the VMO is currently not cached.
 
 ## SEE ALSO
 

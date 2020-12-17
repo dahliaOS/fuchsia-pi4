@@ -214,6 +214,12 @@ class VmCowPages final : public VmHierarchyBase,
   // pager-backed queue, so that they can be evicted first.
   void PromoteRangeForReclamationLocked(uint64_t offset, uint64_t len) TA_REQ(lock_);
 
+  // Marks this, and any parents, as executable syncing any present pages and ensuring any future
+  // pages faulted in via SupplyPages also get synced.
+  void MarkExecutableLocked() TA_REQ(lock_);
+
+  bool IsExecutableLocked() const TA_REQ(lock_) { return executable_; }
+
  private:
   // private constructor (use Create())
   VmCowPages(fbl::RefPtr<VmHierarchyState> root_lock, uint32_t options, uint32_t pmm_alloc_flags,
@@ -478,6 +484,12 @@ class VmCowPages final : public VmHierarchyBase,
   // partial_cow_release_ must be set to indicate in the future we need to do more expensive
   // processing to check for such free regions.
   bool partial_cow_release_ TA_GUARDED(lock_) = false;
+
+  // Flag that indicates whether these pages should be considered executable. When true, any
+  // manipulations that alter the backing physical pages (but not contents) need to be synced. For
+  // CoW pages this means any writes from mappings etc can be ignored, but any pages provided from
+  // a pager source via SupplyPages need to be synced.
+  bool executable_ TA_GUARDED(lock_) = false;
 
   // parent pointer (may be null)
   fbl::RefPtr<VmCowPages> parent_ TA_GUARDED(lock_);
