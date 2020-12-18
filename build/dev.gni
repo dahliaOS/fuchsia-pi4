@@ -19,5 +19,16 @@ declare_args() {
   dev_fuchsia_zbi_kernel_cmdline_golden = ""
 
   # List of labels for objects to include in the ZBI.
-  dev_bootfs_labels = []
+  dev_bootfs_labels = [
+    "//products/kernel_cmdline:kernel.halt-on-panic--true",
+    "//products/kernel_cmdline:devmgr.log-to-debuglog--true",
+  ]
+
+  # only add for x86 builds
+  if (current_cpu == "x64") {
+    dev_bootfs_labels += [
+      "//products/kernel_cmdline:kernel.serial--legacy",
+      "//products/kernel_cmdline:console.shell--true",
+    ]
+  }
 }
