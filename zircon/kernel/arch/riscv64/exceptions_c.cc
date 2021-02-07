@@ -155,6 +155,8 @@ static void riscv64_illegal_instruction_handler(long cause, struct iframe_t *fra
   frame->status |= RISCV64_CSR_SSTATUS_FS_INITIAL;
 }
 
+extern "C" syscall_result riscv64_syscall_dispatcher(struct iframe_t *frame);
+
 static void riscv64_syscall_handler(struct iframe_t *frame) {
   frame->epc = frame->epc + 0x4; // Skip the ecall instruction
 
@@ -164,8 +166,6 @@ static void riscv64_syscall_handler(struct iframe_t *frame) {
     Thread::Current::ProcessPendingSignals(GeneralRegsSource::Iframe, frame);
   }
 }
-
-extern "C" syscall_result riscv64_syscall_dispatcher(struct iframe_t *frame);
 
 extern "C" void riscv64_exception_handler(long cause, struct iframe_t *frame) {
   riscv64_restore_percpu_pointer();
