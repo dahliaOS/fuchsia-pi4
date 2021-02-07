@@ -49,13 +49,13 @@ const ktl::array _kernel_regions = {
         .name = "kernel_code",
         .base = (vaddr_t)__code_start,
         .size = ROUNDUP((uintptr_t)__code_end - (uintptr_t)__code_start, PAGE_SIZE),
-        .arch_mmu_flags = ARCH_MMU_FLAG_PERM_READ | ARCH_MMU_FLAG_PERM_EXECUTE,
+        .arch_mmu_flags = ARCH_MMU_FLAG_PERM_READ | ARCH_MMU_FLAG_PERM_EXECUTE | ARCH_MMU_FLAG_PERM_WRITE,
     },
     kernel_region{
         .name = "kernel_rodata",
         .base = (vaddr_t)__rodata_start,
         .size = ROUNDUP((uintptr_t)__rodata_end - (uintptr_t)__rodata_start, PAGE_SIZE),
-        .arch_mmu_flags = ARCH_MMU_FLAG_PERM_READ,
+        .arch_mmu_flags = ARCH_MMU_FLAG_PERM_READ | ARCH_MMU_FLAG_PERM_WRITE,
     },
     kernel_region{
         .name = "kernel_data",
