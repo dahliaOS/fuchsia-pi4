@@ -5,13 +5,19 @@
 mod authenticator;
 mod supplicant;
 
-use crate::key::{exchange, gtk::GtkProvider};
+use crate::key::{
+    exchange,
+    gtk::{Gtk, GtkProvider},
+    igtk::{Igtk, IgtkProvider},
+    ptk::Ptk,
+};
 use crate::nonce::NonceReader;
 use crate::rsna::{Dot11VerifiedKeyFrame, NegotiatedProtection, Role, SecAssocUpdate, UpdateSink};
 use crate::ProtectionInfo;
 use crate::{rsn_ensure, Error};
 use eapol;
 use std::sync::{Arc, Mutex};
+use wlan_common::ie::rsn::rsne::Rsne;
 use wlan_statemachine::StateMachine;
 use zerocopy::ByteSlice;
 
@@ -88,6 +94,7 @@ pub struct Config {
     pub a_protection: ProtectionInfo,
     pub nonce_rdr: Arc<NonceReader>,
     pub gtk_provider: Option<Arc<Mutex<GtkProvider>>>,
+    pub igtk_provider: Option<Arc<Mutex<IgtkProvider>>>,
 }
 
 impl Config {
@@ -99,17 +106,54 @@ impl Config {
         a_protection: ProtectionInfo,
         nonce_rdr: Arc<NonceReader>,
         gtk_provider: Option<Arc<Mutex<GtkProvider>>>,
+        igtk_provider: Option<Arc<Mutex<IgtkProvider>>>,
     ) -> Result<Config, Error> {
         rsn_ensure!(
-            role != Role::Authenticator || gtk_provider.is_some(),
+            !(role == Role::Authenticator && gtk_provider.is_none()),
             "GtkProvider is missing"
         );
+        if role == Role::Authenticator {
+            match &a_protection {
+                ProtectionInfo::Rsne(Rsne {
+                    rsn_capabilities: Some(rsn_capabilities),
+                    group_mgmt_cipher_suite,
+                    ..
+                }) => {
+                    if rsn_capabilities.mgmt_frame_protection_cap()
+                        || rsn_capabilities.mgmt_frame_protection_req()
+                    {
+                        rsn_ensure!(group_mgmt_cipher_suite.is_some(), "Management Frame Protection support with no Group Management Cipher Suite");
+                        rsn_ensure!(
+                            igtk_provider.is_some(),
+                            "Management Frame Protection support with no IgtkProvider"
+                        );
+                        rsn_ensure!(
+                            group_mgmt_cipher_suite.unwrap()
+                                == igtk_provider.as_ref().unwrap().lock().unwrap().cipher(),
+                            "Group Management Cipher and IgtkProvider Cipher do not match"
+                        );
+                    }
+                }
+                ProtectionInfo::Rsne(Rsne { rsn_capabilities: None, .. })
+                | ProtectionInfo::LegacyWpa(_) => {}
+            }
+        }
+
         rsn_ensure!(
             NegotiatedProtection::from_protection(&s_protection).is_ok(),
             "invalid supplicant protection"
         );
 
-        Ok(Config { role, s_addr, s_protection, a_addr, a_protection, nonce_rdr, gtk_provider })
+        Ok(Config {
+            role,
+            s_addr,
+            s_protection,
+            a_addr,
+            a_protection,
+            nonce_rdr,
+            gtk_provider,
+            igtk_provider,
+        })
     }
 }
 
@@ -180,6 +224,27 @@ impl Fourway {
                 state_machine.replace_state(|state| state.on_eapol_key_frame(update_sink, frame));
                 Ok(())
             }
+        }
+    }
+
+    pub fn ptk(&self) -> Option<Ptk> {
+        match self {
+            Fourway::Authenticator(state_machine) => state_machine.as_ref().ptk(),
+            Fourway::Supplicant(state_machine) => state_machine.as_ref().ptk(),
+        }
+    }
+
+    pub fn gtk(&self) -> Option<Gtk> {
+        match self {
+            Fourway::Authenticator(state_machine) => state_machine.as_ref().gtk(),
+            Fourway::Supplicant(state_machine) => state_machine.as_ref().gtk(),
+        }
+    }
+
+    pub fn igtk(&self) -> Option<Igtk> {
+        match self {
+            Fourway::Authenticator(state_machine) => state_machine.as_ref().igtk(),
+            Fourway::Supplicant(state_machine) => state_machine.as_ref().igtk(),
         }
     }
 
@@ -411,7 +476,7 @@ fn is_zero(slice: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::Fourway;
-    use crate::key::ptk::Ptk;
+    use super::*;
     use crate::rsna::{test_util, SecAssocUpdate, UpdateSink};
     use wlan_common::big_endian::BigEndianU64;
 
@@ -436,7 +501,46 @@ mod tests {
         assert_eq!(s_gtk, a_gtk);
     }
 
-    fn run_wpa3_handshake(gtk: &[u8], igtk: Option<&[u8]>) -> (Ptk, Vec<SecAssocUpdate>) {
+    fn run_wpa3_handshake_real_authenticator() -> (
+        Fourway, // authenticator
+        Fourway, // supplicant
+    ) {
+        let mut supplicant = test_util::make_wpa3_handshake(super::Role::Supplicant);
+        let mut authenticator = test_util::make_wpa3_handshake(super::Role::Authenticator);
+        let protection = test_util::get_wpa3_protection();
+
+        let mut update_sink = UpdateSink::default();
+        authenticator.initiate(&mut update_sink, 12).expect("initiating Authenticator");
+        let msg1_buf = test_util::expect_eapol_resp(&update_sink[..]);
+        let msg1 = msg1_buf.keyframe();
+
+        let update_sink = test_util::send_msg_to_fourway(&mut supplicant, msg1, 0, &protection);
+        let msg2_buf = test_util::expect_eapol_resp(&update_sink[..]);
+        let msg2 = msg2_buf.keyframe();
+
+        let update_sink = test_util::send_msg_to_fourway(&mut authenticator, msg2, 0, &protection);
+        let msg3_buf = test_util::expect_eapol_resp(&update_sink[..]);
+        let msg3 = msg3_buf.keyframe();
+
+        let update_sink = test_util::send_msg_to_fourway(&mut supplicant, msg3, 0, &protection);
+        test_util::expect_eapol_resp(&update_sink[..]);
+
+        (authenticator, supplicant)
+    }
+
+    #[test]
+    fn test_wpa3_handshake_generates_igtk_real_authenticator() {
+        let (authenticator, supplicant) = run_wpa3_handshake_real_authenticator();
+
+        assert_eq!(authenticator.ptk(), supplicant.ptk());
+        assert_eq!(authenticator.gtk(), supplicant.gtk());
+        assert_eq!(authenticator.igtk(), supplicant.igtk());
+    }
+
+    fn run_wpa3_handshake_mock_authenticator(
+        gtk: &[u8],
+        igtk: Option<&[u8]>,
+    ) -> (Ptk, Vec<SecAssocUpdate>) {
         let anonce = [0xab; 32];
         let mut supplicant = test_util::make_wpa3_handshake(super::Role::Supplicant);
         let protection = test_util::get_wpa3_protection();
@@ -452,10 +556,10 @@ mod tests {
     }
 
     #[test]
-    fn test_wpa3_handshake_generates_igtk() {
+    fn test_wpa3_handshake_generates_igtk_mock_authenticator() {
         let gtk = [0xbb; 32];
         let igtk = [0xcc; 32];
-        let (ptk, updates) = run_wpa3_handshake(&gtk[..], Some(&igtk[..]));
+        let (ptk, updates) = run_wpa3_handshake_mock_authenticator(&gtk[..], Some(&igtk[..]));
 
         test_util::expect_eapol_resp(&updates[..]);
         let s_ptk = test_util::expect_reported_ptk(&updates[..]);
@@ -469,7 +573,7 @@ mod tests {
     #[test]
     fn test_wpa3_handshake_requires_igtk() {
         let gtk = [0xbb; 32];
-        let (_ptk, updates) = run_wpa3_handshake(&gtk[..], None);
+        let (_ptk, updates) = run_wpa3_handshake_mock_authenticator(&gtk[..], None);
         assert!(
             test_util::get_eapol_resp(&updates[..]).is_none(),
             "WPA3 should not send EAPOL msg4 without IGTK"

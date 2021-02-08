@@ -8,7 +8,7 @@ use crate::key::exchange::handshake::fourway::{self, Fourway};
 use crate::key::exchange::{compute_mic, compute_mic_from_buf};
 use crate::key::{
     gtk::{Gtk, GtkProvider},
-    igtk::Igtk,
+    igtk::{Igtk, IgtkProvider},
     ptk::Ptk,
 };
 use crate::key_data::kde;
@@ -58,7 +58,7 @@ pub fn get_supplicant() -> Supplicant {
     .expect("could not create Supplicant")
 }
 
-pub fn get_authenticator() -> Authenticator {
+pub fn get_wpa2_authenticator() -> Authenticator {
     let gtk_provider = GtkProvider::new(Cipher { oui: OUI, suite_type: cipher::CCMP_128 })
         .expect("error creating GtkProvider");
     let nonce_rdr = NonceReader::new(&S_ADDR[..]).expect("error creating Reader");
@@ -72,6 +72,26 @@ pub fn get_authenticator() -> Authenticator {
         ProtectionInfo::Rsne(fake_wpa2_s_rsne()),
         test_util::A_ADDR,
         ProtectionInfo::Rsne(fake_wpa2_a_rsne()),
+    )
+    .expect("could not create Authenticator")
+}
+
+pub fn get_wpa3_authenticator() -> Authenticator {
+    let gtk_provider = GtkProvider::new(Cipher { oui: OUI, suite_type: cipher::CCMP_128 })
+        .expect("error creating GtkProvider");
+    let igtk_provider = IgtkProvider::new(Cipher { oui: OUI, suite_type: cipher::CCMP_128 })
+        .expect("error creating IgtkProvider");
+    let nonce_rdr = NonceReader::new(&S_ADDR[..]).expect("error creating Reader");
+    let password = "ThisIsAPassword".as_bytes().to_vec();
+    Authenticator::new_wpa3(
+        nonce_rdr,
+        Arc::new(Mutex::new(gtk_provider)),
+        Arc::new(Mutex::new(igtk_provider)),
+        password,
+        test_util::S_ADDR,
+        ProtectionInfo::Rsne(fake_wpa3_s_rsne()),
+        test_util::A_ADDR,
+        ProtectionInfo::Rsne(fake_wpa3_a_rsne()),
     )
     .expect("could not create Authenticator")
 }
@@ -364,7 +384,31 @@ fn make_fourway_cfg(
     s_protection: ProtectionInfo,
     a_protection: ProtectionInfo,
 ) -> fourway::Config {
-    let gtk_provider = GtkProvider::new(cipher).expect("error creating GtkProvider");
+    let gtk_provider = match role {
+        Role::Authenticator => Some(Arc::new(Mutex::new(
+            GtkProvider::new(cipher).expect("error creating GtkProvider"),
+        ))),
+        Role::Supplicant => None,
+    };
+    let igtk_provider = match role {
+        Role::Authenticator => match &a_protection {
+            ProtectionInfo::Rsne(Rsne { rsn_capabilities: Some(rsn_capabilities), .. }) => {
+                if rsn_capabilities.mgmt_frame_protection_cap()
+                    || rsn_capabilities.mgmt_frame_protection_req()
+                {
+                    Some(Arc::new(Mutex::new(
+                        IgtkProvider::new(cipher).expect("error creating GtkProvider"),
+                    )))
+                } else {
+                    None
+                }
+            }
+            ProtectionInfo::Rsne(Rsne { rsn_capabilities: None, .. })
+            | ProtectionInfo::LegacyWpa(_) => None,
+        },
+        Role::Supplicant => None,
+    };
+
     let nonce_rdr = NonceReader::new(&S_ADDR[..]).expect("error creating Reader");
     fourway::Config::new(
         role,
@@ -373,7 +417,8 @@ fn make_fourway_cfg(
         test_util::A_ADDR,
         a_protection,
         nonce_rdr,
-        Some(Arc::new(Mutex::new(gtk_provider))),
+        gtk_provider,
+        igtk_provider,
     )
     .expect("could not construct PTK exchange method")
 }
@@ -509,21 +554,21 @@ pub struct FourwayTestEnv {
 }
 
 pub fn send_msg_to_fourway<B: ByteSlice + std::fmt::Debug>(
-    supplicant: &mut Fourway,
+    fourway: &mut Fourway,
     msg: eapol::KeyFrameRx<B>,
     krc: u64,
     protection: &NegotiatedProtection,
 ) -> UpdateSink {
-    let role = match &supplicant {
+    let role = match &fourway {
         Fourway::Authenticator(_) => Role::Authenticator,
         Fourway::Supplicant(_) => Role::Supplicant,
     };
     let verified_msg = make_verified(msg, role, krc, &protection);
 
-    let mut s_update_sink = UpdateSink::default();
-    let result = supplicant.on_eapol_key_frame(&mut s_update_sink, 0, verified_msg);
+    let mut update_sink = UpdateSink::default();
+    let result = fourway.on_eapol_key_frame(&mut update_sink, 0, verified_msg);
     assert!(result.is_ok(), "{:?} failed processing msg: {}", role, result.unwrap_err());
-    s_update_sink
+    update_sink
 }
 
 impl FourwayTestEnv {

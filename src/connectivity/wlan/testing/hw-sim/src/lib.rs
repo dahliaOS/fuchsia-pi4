@@ -27,6 +27,7 @@ use {
                 akm,
                 cipher::{self, CIPHER_CCMP_128, CIPHER_TKIP},
                 rsne,
+                suite_filter::DEFAULT_GROUP_MGMT_CIPHER,
             },
             wpa::WpaIe,
         },
@@ -340,6 +341,27 @@ pub fn create_deprecated_wpa1_psk_authenticator(
         s_protection,
         bssid.0,
         a_protection,
+    )
+    .expect("creating authenticator")
+}
+
+pub fn create_wpa3_authenticator(bssid: &mac::Bssid, passphrase: &str) -> wlan_rsn::Authenticator {
+    let nonce_rdr = wlan_rsn::nonce::NonceReader::new(&bssid.0).expect("creating nonce reader");
+    let gtk_provider = wlan_rsn::GtkProvider::new(CIPHER_CCMP_128).expect("creating gtk provider");
+    let igtk_provider =
+        wlan_rsn::IgtkProvider::new(DEFAULT_GROUP_MGMT_CIPHER).expect("creating igtk provider");
+    let password = passphrase.as_bytes().to_vec();
+    let s_rsne = wlan_rsn::ProtectionInfo::Rsne(rsne::Rsne::wpa3_rsne());
+    let a_rsne = wlan_rsn::ProtectionInfo::Rsne(rsne::Rsne::wpa3_rsne());
+    wlan_rsn::Authenticator::new_wpa3(
+        nonce_rdr,
+        std::sync::Arc::new(std::sync::Mutex::new(gtk_provider)),
+        std::sync::Arc::new(std::sync::Mutex::new(igtk_provider)),
+        password,
+        CLIENT_MAC_ADDR,
+        s_rsne,
+        bssid.0,
+        a_rsne,
     )
     .expect("creating authenticator")
 }

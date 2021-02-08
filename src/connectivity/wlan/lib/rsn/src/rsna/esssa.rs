@@ -498,7 +498,7 @@ mod tests {
     #[test]
     fn test_supplicant_with_authenticator() {
         let mut supplicant = test_util::get_supplicant();
-        let mut authenticator = test_util::get_authenticator();
+        let mut authenticator = test_util::get_wpa2_authenticator();
         supplicant.start().expect("Failed starting Supplicant");
 
         // Initiate Authenticator.
