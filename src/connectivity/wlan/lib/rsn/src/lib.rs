@@ -363,6 +363,8 @@ pub enum Error {
     UnknownKeyExchange,
     #[error("cannot initiate Fourway Handshake as Supplicant")]
     UnexpectedInitiationRequest,
+    #[error("cannot initiate Supplicant in current EssSa state")]
+    UnexpectedEsssaInitiation,
     #[error("unsupported Key Descriptor Type: {:?}", _0)]
     UnsupportedKeyDescriptor(eapol::KeyDescriptor),
     #[error("unexpected Key Descriptor Type {:?}; expected {:?}", _0, _1)]

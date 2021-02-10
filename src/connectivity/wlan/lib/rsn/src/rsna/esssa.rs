@@ -198,7 +198,11 @@ impl EssSa {
         // This function will not succeed unless called on a new Esssa or one that was reset.
         match (self.ptksa.as_ref(), self.gtksa.as_ref(), self.igtksa.as_ref()) {
             (Ptksa::Uninitialized { .. }, Gtksa::Uninitialized { .. }, Igtksa::Uninitialized) => (),
-            _ => return Err(Error::UnexpectedInitiationRequest),
+            // TODO (69388): The Ptksa can be in the Initialized state
+            // if the auth method was SAE and the Pmksa key was
+            // confirmed prior to initiate()'ing this Esssa.
+            (Ptksa::Initialized { .. }, Gtksa::Uninitialized { .. }, Igtksa::Uninitialized) => (),
+            _ => return Err(Error::UnexpectedEsssaInitiation),
         };
         info!("establishing ESSSA...");
 
