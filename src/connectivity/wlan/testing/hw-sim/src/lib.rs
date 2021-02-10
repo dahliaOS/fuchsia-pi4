@@ -200,7 +200,7 @@ pub fn send_probe_resp(
     Ok(())
 }
 
-pub fn send_authentication(
+pub fn send_open_authentication_success(
     channel: &WlanChan,
     bssid: &mac::Bssid,
     proxy: &WlantapPhyProxy,
@@ -395,6 +395,7 @@ pub fn process_tx_auth_updates(
     channel: &WlanChan,
     bssid: &mac::Bssid,
     phy: &WlantapPhyProxy,
+    _ready_for_sae_frames: bool,
     ready_for_eapol_frames: bool,
 ) -> Result<(), anyhow::Error> {
     // TODO(fxbug.dev/69580): Use Vec::drain_filter instead.
@@ -446,6 +447,7 @@ pub fn handle_tx_event<
         &WlanChan,
         &mac::Bssid,
         &WlantapPhyProxy,
+        bool, // ready_for_sae_frames
         bool, // ready_for_eapol_frames
     ) -> Result<(), anyhow::Error>,
 >(
@@ -460,10 +462,23 @@ pub fn handle_tx_event<
     match mac::MacFrame::parse(&args.packet.data[..], false) {
         Some(mac::MacFrame::Mgmt { mgmt_hdr, body, .. }) => {
             match mac::MgmtBody::parse({ mgmt_hdr.frame_ctrl }.mgmt_subtype(), body) {
-                Some(mac::MgmtBody::Authentication { .. }) => {
-                    send_authentication(&CHANNEL, bssid, &phy)
-                        .expect("Error sending fake authentication frame.");
-                }
+                Some(mac::MgmtBody::Authentication { auth_hdr, .. }) => match auth_hdr.auth_alg_num
+                {
+                    mac::AuthAlgorithmNumber::OPEN => match authenticator {
+                        Some(wlan_rsn::Authenticator {
+                            auth_cfg: wlan_rsn::auth::Config::ComputedPsk(_),
+                            ..
+                        })
+                        | None => {
+                            send_open_authentication_success(&CHANNEL, bssid, &phy)
+                                .expect("Error sending fake OPEN authentication frame.");
+                        }
+                        _ => panic!("Unexpected OPEN authentication frame for {:?}", authenticator),
+                    },
+                    auth_alg_num @ _ => {
+                        panic!("Unexpected authentication algorithm number: {:?}", auth_alg_num)
+                    }
+                },
                 Some(mac::MgmtBody::AssociationReq { .. }) => {
                     send_association_response(&CHANNEL, bssid, mac::StatusCode::SUCCESS, &phy)
                         .expect("Error sending fake association response frame.");
@@ -479,7 +494,7 @@ pub fn handle_tx_event<
                             ),
                         }
                         authenticator.initiate(&mut update_sink).expect("initiating authenticator");
-                        process_auth_update(authenticator, &mut update_sink, &CHANNEL, bssid, &phy, true).expect(
+                        process_auth_update(authenticator, &mut update_sink, &CHANNEL, bssid, &phy, true, true).expect(
                             "processing authenticator updates immediately after association complete",
                         );
                     }
@@ -505,8 +520,16 @@ pub fn handle_tx_event<
                     {
                         error!("error sending EAPOL frame to authenticator: {}", e);
                     }
-                    process_auth_update(authenticator, update_sink, &CHANNEL, bssid, &phy, true)
-                        .expect("processing authenticator updates after EAPOL frame");
+                    process_auth_update(
+                        authenticator,
+                        update_sink,
+                        &CHANNEL,
+                        bssid,
+                        &phy,
+                        true,
+                        true,
+                    )
+                    .expect("processing authenticator updates after EAPOL frame");
                 }
             }
         }
