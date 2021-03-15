@@ -13,7 +13,13 @@ use {
     fuchsia_component::client::connect_to_service,
     fuchsia_zircon as zx,
     futures::TryStreamExt,
+    wlan_common::format::SsidFmt as _,
 };
+
+// <ssid-BYTES> can be at most 71 characters, but, since we
+// expect most SSIDs to be 16 bytes or less, reserve only
+// 39 characters.
+const RESERVED_SSID_PRINT_WIDTH: usize = 39;
 
 mod serialize;
 
@@ -99,7 +105,6 @@ fn extract_network_id(
 ) -> Result<(String, String), Error> {
     match network_id {
         Some(id) => {
-            let ssid = std::string::String::from_utf8(id.ssid).unwrap();
             let security_type = match id.type_ {
                 fidl_fuchsia_wlan_policy::SecurityType::None => "",
                 fidl_fuchsia_wlan_policy::SecurityType::Wep => "wep",
@@ -107,7 +112,7 @@ fn extract_network_id(
                 fidl_fuchsia_wlan_policy::SecurityType::Wpa2 => "wpa2",
                 fidl_fuchsia_wlan_policy::SecurityType::Wpa3 => "wpa3",
             };
-            return Ok((ssid, security_type.to_string()));
+            return Ok((id.ssid.to_ssid_str_not_redactable(), security_type.to_string()));
         }
         None => return Ok(("".to_string(), "".to_string())),
     };
@@ -201,18 +206,24 @@ pub fn print_saved_networks(saved_networks: Vec<wlan_policy::NetworkConfig>) -> 
             Some(credential) => match credential {
                 wlan_policy::Credential::None(wlan_policy::Empty) => String::from(""),
                 wlan_policy::Credential::Password(bytes) => {
-                    let password = std::string::String::from_utf8(bytes);
-                    password.unwrap()
+                    std::string::String::from_utf8(bytes.clone()).unwrap_or_else(|_| {
+                        format!("<password-{}>", hex::encode(bytes).to_uppercase())
+                    })
                 }
                 wlan_policy::Credential::Psk(bytes) => {
-                    // PSK is stored as bytes but is displayed as hex to prevent UTF-8 errors
-                    hex::encode(bytes)
+                    format!("<psk-{}>", hex::encode(bytes).to_uppercase())
                 }
                 _ => return Err(format_err!("unknown credential variant detected")),
             },
             None => String::from(""),
         };
-        println!("{:32} | {:4} | {}", ssid, security_type, password);
+        println!(
+            "{:ssid_width$} | {:4} | {}",
+            ssid,
+            security_type,
+            password,
+            ssid_width = RESERVED_SSID_PRINT_WIDTH,
+        );
     }
     Ok(())
 }
@@ -243,7 +254,14 @@ pub fn print_scan_results(scan_results: Vec<wlan_policy::ScanResult>) -> Result<
     for network in scan_results {
         let (ssid, security_type) = extract_network_id(network.id)?;
         let compatibility = extract_compatibility(network.compatibility);
-        println!("{:32} | {:3} ({})", ssid, security_type, compatibility);
+
+        println!(
+            "{:ssid_width$} | {:3} ({})",
+            ssid,
+            security_type,
+            compatibility,
+            ssid_width = RESERVED_SSID_PRINT_WIDTH,
+        );
 
         if network.entries.is_some() {
             for entry in network.entries.unwrap() {
@@ -409,18 +427,38 @@ pub async fn handle_listen(
                 continue;
             }
             let id = net_state.id.unwrap();
-            let ssid = std::str::from_utf8(&id.ssid).unwrap();
+            let ssid = id.ssid.to_ssid_str_not_redactable();
             match net_state.state.unwrap() {
                 wlan_policy::ConnectionState::Failed => {
-                    println!("{:32}: connection failed - {:?}", ssid, net_state.status);
+                    println!(
+                        "{:ssid_width$}: connection failed - {:?}",
+                        ssid,
+                        net_state.status,
+                        ssid_width = RESERVED_SSID_PRINT_WIDTH,
+                    );
                 }
                 wlan_policy::ConnectionState::Disconnected => {
-                    println!("{:32}: connection disconnected - {:?}", ssid, net_state.status);
+                    println!(
+                        "{:ssid_width$}: connection disconnected - {:?}",
+                        ssid,
+                        net_state.status,
+                        ssid_width = RESERVED_SSID_PRINT_WIDTH,
+                    );
                 }
                 wlan_policy::ConnectionState::Connecting => {
-                    println!("{:32}: connecting", ssid);
+                    println!(
+                        "{:ssid_width$}: connecting",
+                        ssid,
+                        ssid_width = RESERVED_SSID_PRINT_WIDTH,
+                    );
                 }
-                wlan_policy::ConnectionState::Connected => println!("{:32}: connected", ssid),
+                wlan_policy::ConnectionState::Connected => {
+                    println!(
+                        "{:ssid_width$}: connected",
+                        ssid,
+                        ssid_width = RESERVED_SSID_PRINT_WIDTH,
+                    )
+                }
             }
         }
     }
@@ -460,12 +498,12 @@ async fn save_network(
         .map_err(|e| format_err!("failed to save network with {:?}", e))?;
     println!(
         "Successfully saved network '{}'",
-        std::str::from_utf8(&network_config.id.unwrap().ssid).unwrap()
+        network_config.id.unwrap().ssid.to_ssid_str_not_redactable()
     );
     Ok(())
 }
 
-/// Issues a scan request to the client policy layer.
+/// ISSUES a scan request to the client policy layer.
 pub async fn handle_scan(
     client_controller: wlan_policy::ClientControllerProxy,
 ) -> Result<Vec<wlan_policy::ScanResult>, Error> {
@@ -569,8 +607,15 @@ pub async fn handle_ap_listen(
     mut server_stream: wlan_policy::AccessPointStateUpdatesRequestStream,
 ) -> Result<(), Error> {
     println!(
-        "{:32} | {:4} | {:8} | {:12} | {:6} | {:4} | {:7}",
-        "SSID", "Type", "State", "Mode", "Band", "Freq", "#Clients"
+        "{:ssid_width$} | {:4} | {:8} | {:12} | {:6} | {:4} | {:7}",
+        "SSID",
+        "Type",
+        "State",
+        "Mode",
+        "Band",
+        "Freq",
+        "#Clients",
+        ssid_width = RESERVED_SSID_PRINT_WIDTH,
     );
 
     while let Some(update_request) = server_stream.try_next().await? {
@@ -584,8 +629,7 @@ pub async fn handle_ap_listen(
         for update in updates {
             let (ssid, security_type) = match update.id {
                 Some(network_id) => {
-                    let ssid = network_id.ssid.clone();
-                    let ssid = String::from_utf8(ssid)?;
+                    let ssid = network_id.ssid.to_ssid_str_not_redactable();
                     let security_type = match network_id.type_ {
                         wlan_policy::SecurityType::None => "none",
                         wlan_policy::SecurityType::Wep => "wep",
@@ -633,8 +677,15 @@ pub async fn handle_ap_listen(
             };
 
             println!(
-                "{:32} | {:4} | {:8} | {:12} | {:6} | {:4} | {:7}",
-                ssid, security_type, state, mode, band, frequency, client_count
+                "{:ssid_width$} | {:4} | {:8} | {:12} | {:6} | {:4} | {:7}",
+                ssid,
+                security_type,
+                state,
+                mode,
+                band,
+                frequency,
+                client_count,
+                ssid_width = RESERVED_SSID_PRINT_WIDTH,
             );
         }
     }
@@ -1214,9 +1265,7 @@ mod tests {
     #[test]
     fn test_construct_config_psk() {
         // Test PSK separately since it has a unique credential
-        const ASCII_ZERO: u8 = 49;
-        let psk =
-            String::from_utf8([ASCII_ZERO; 64].to_vec()).expect("Failed to create PSK test value");
+        let psk = hex::encode([0xaa; 32]);
         let wpa_config = PolicyNetworkConfig {
             ssid: "some_ssid".to_string(),
             security_type: SecurityTypeArg::Wpa2,
@@ -1228,7 +1277,7 @@ mod tests {
                 ssid: "some_ssid".as_bytes().to_vec(),
                 type_: wlan_policy::SecurityType::Wpa2,
             }),
-            credential: Some(wlan_policy::Credential::Psk([17; 32].to_vec())),
+            credential: Some(wlan_policy::Credential::Psk([0xaa; 32].to_vec())),
             ..wlan_policy::NetworkConfig::EMPTY
         };
         let result_cfg =

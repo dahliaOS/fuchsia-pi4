@@ -27,6 +27,7 @@ use {
         fs, io,
         path::Path,
     },
+    wlan_common::format::SsidFmt as _,
     wlan_metrics_registry::{
         SavedConfigurationsForSavedNetworkMetricDimensionSavedConfigurations,
         SavedNetworksMetricDimensionSavedNetworks,
@@ -254,7 +255,7 @@ impl SavedNetworksManager {
             } else {
                 error!(
                     "Error creating network config from loaded data for SSID {}",
-                    String::from_utf8_lossy(&network_id.ssid.clone())
+                    network_id.ssid.to_ssid_str()
                 );
             }
         }

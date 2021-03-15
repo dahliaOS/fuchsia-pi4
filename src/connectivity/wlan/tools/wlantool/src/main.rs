@@ -23,7 +23,9 @@ use std::fmt;
 use std::str::FromStr;
 use structopt::StructOpt;
 use wlan_common::{
+    bss::BssDescription,
     channel::{Cbw, Channel, Phy},
+    format::SsidFmt as _,
     ie::SSID_MAX_BYTE_LEN,
     RadioConfig, StationMode,
 };
@@ -305,7 +307,7 @@ async fn print_iface_status(iface_id: u16, wlan_svc: WlanSvc) -> Result<(), Erro
                     println!(
                         "Iface {}: Connected to '{}' (bssid {}) channel: {} rssi: {}dBm snr: {}dB",
                         iface_id,
-                        String::from_utf8_lossy(&bss.ssid),
+                        bss.ssid.to_ssid_str_not_redactable(),
                         MacAddr(bss.bssid),
                         Channel::from_fidl(bss.channel),
                         bss.rssi_dbm,
@@ -315,7 +317,7 @@ async fn print_iface_status(iface_id: u16, wlan_svc: WlanSvc) -> Result<(), Erro
                 None => println!("Iface {}: Not connected to a network", iface_id),
             }
             if !st.connecting_to_ssid.is_empty() {
-                println!("Connecting to '{}'", String::from_utf8_lossy(&st.connecting_to_ssid));
+                println!("Connecting to '{}'", st.connecting_to_ssid.to_ssid_str_not_redactable(),);
             }
         }
         MacRole::Ap => {
@@ -327,7 +329,7 @@ async fn print_iface_status(iface_id: u16, wlan_svc: WlanSvc) -> Result<(), Erro
                 status.running_ap.map(|ap| {
                     format!(
                         "ssid: {}, channel: {}, clients: {}",
-                        String::from_utf8_lossy(&ap.ssid),
+                        ap.ssid.to_ssid_str_not_redactable(),
                         ap.channel,
                         ap.num_clients
                     )
@@ -536,7 +538,6 @@ impl FromStr for MacAddr {
 }
 
 async fn handle_scan_transaction(scan_txn: fidl_sme::ScanTransactionProxy) -> Result<(), Error> {
-    let mut printed_header = false;
     let mut events = scan_txn.take_event_stream();
     while let Some(evt) = events
         .try_next()
@@ -545,10 +546,6 @@ async fn handle_scan_transaction(scan_txn: fidl_sme::ScanTransactionProxy) -> Re
     {
         match evt {
             ScanTransactionEvent::OnResult { aps } => {
-                if !printed_header {
-                    print_scan_header();
-                    printed_header = true;
-                }
                 for ap in aps.iter().sorted_by(|a, b| a.ssid.cmp(&b.ssid)) {
                     print_scan_result(ap);
                 }
@@ -563,73 +560,20 @@ async fn handle_scan_transaction(scan_txn: fidl_sme::ScanTransactionProxy) -> Re
     Ok(())
 }
 
-fn print_scan_line(
-    bssid: impl fmt::Display,
-    dbm: impl fmt::Display,
-    chan: impl fmt::Display,
-    protection: impl fmt::Display,
-    compat: impl fmt::Display,
-    ssid: impl fmt::Display,
-) {
-    println!("{:17} {:>4} {:>6} {:12} {:10} {}", bssid, dbm, chan, protection, compat, ssid)
-}
-
-fn print_scan_header() {
-    print_scan_line("BSSID", "dBm", "Chan", "Protection", "Compatible", "SSID");
-}
-
-fn is_ascii(v: &Vec<u8>) -> bool {
-    for val in v {
-        if val > &0x7e {
-            return false;
-        }
-    }
-    return true;
-}
-
-fn is_printable_ascii(v: &Vec<u8>) -> bool {
-    for val in v {
-        if val < &0x20 || val > &0x7e {
-            return false;
-        }
-    }
-    return true;
-}
-
 fn print_scan_result(bss: &fidl_sme::BssInfo) {
-    let is_ascii = is_ascii(&bss.ssid);
-    let is_ascii_print = is_printable_ascii(&bss.ssid);
-    let is_utf8 = String::from_utf8(bss.ssid.clone()).is_ok();
-    let is_hex = !is_utf8 || (is_ascii && !is_ascii_print);
-
-    let ssid_str;
-    if is_hex {
-        ssid_str = format!("({:X?})", &*bss.ssid);
-    } else {
-        ssid_str = format!("\"{}\"", String::from_utf8_lossy(&bss.ssid));
+    match &bss.bss_desc {
+        Some(fidl_bss_description_box) => {
+            match BssDescription::from_fidl(*fidl_bss_description_box.clone()) {
+                Ok(bss_description) => {
+                    println!("{}", bss_description.to_non_obfuscated_string())
+                }
+                Err(e) => {
+                    println!("** Error reading fidl_internal::BssDescription: {:?} **", e);
+                }
+            }
+        }
+        None => println!("** BssDescription missing from scan result **"),
     }
-
-    print_scan_line(
-        MacAddr(bss.bssid),
-        bss.rssi_dbm,
-        Channel::from_fidl(bss.channel),
-        match bss.protection {
-            fidl_sme::Protection::Unknown => "Unknown",
-            fidl_sme::Protection::Open => "Open",
-            fidl_sme::Protection::Wep => "WEP",
-            fidl_sme::Protection::Wpa1 => "WPA1",
-            fidl_sme::Protection::Wpa1Wpa2PersonalTkipOnly => "WPA1/2 PSK TKIP",
-            fidl_sme::Protection::Wpa2PersonalTkipOnly => "WPA2 PSK TKIP",
-            fidl_sme::Protection::Wpa1Wpa2Personal => "WPA1/2 PSK",
-            fidl_sme::Protection::Wpa2Personal => "WPA2 PSK",
-            fidl_sme::Protection::Wpa2Wpa3Personal => "WPA2/3 PSK",
-            fidl_sme::Protection::Wpa3Personal => "WPA3 PSK",
-            fidl_sme::Protection::Wpa2Enterprise => "WPA2 802.1X",
-            fidl_sme::Protection::Wpa3Enterprise => "WPA3 802.1X",
-        },
-        if bss.compatible { "Y" } else { "N" },
-        ssid_str,
-    );
 }
 
 async fn handle_connect_transaction(

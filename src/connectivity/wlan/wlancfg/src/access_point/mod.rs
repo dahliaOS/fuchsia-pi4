@@ -21,6 +21,7 @@ use {
     std::sync::Arc,
     wlan_common::{
         channel::{Cbw, Phy},
+        format::SsidFmt as _,
         RadioConfig,
     },
 };
@@ -107,11 +108,7 @@ impl AccessPoint {
                         match result.result {
                             Ok(()) => {}
                             Err(_) => {
-                                let ssid_as_str = match std::str::from_utf8(&result.config.id.ssid) {
-                                    Ok(ssid) => ssid,
-                                    Err(_) => "",
-                                };
-                                error!("AP {} did not start", ssid_as_str);
+                                error!("AP {} did not start", result.config.id.ssid.to_ssid_str_not_redactable());
                             }
                         };
                     },

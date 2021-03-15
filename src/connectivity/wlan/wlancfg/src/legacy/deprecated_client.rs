@@ -7,6 +7,7 @@ use {
     fidl_fuchsia_wlan_sme as fidl_sme,
     futures::prelude::*,
     log::{debug, error},
+    wlan_common::format::SsidFmt as _,
 };
 
 const MAX_CONCURRENT_WLAN_REQUESTS: usize = 1000;
@@ -80,11 +81,10 @@ fn convert_state(status: &fidl_sme::ClientStatusResponse) -> deprecated::State {
 fn extract_current_ap(status: &fidl_sme::ClientStatusResponse) -> Option<Box<deprecated::Ap>> {
     match status.connected_to.as_ref() {
         None => None,
-        Some(bss_info) => {
-            let ssid = std::string::String::from_utf8_lossy(&bss_info.ssid).to_string();
-            let rssi_dbm = bss_info.rssi_dbm;
-            Some(Box::new(deprecated::Ap { ssid, rssi_dbm }))
-        }
+        Some(bss_info) => Some(Box::new(deprecated::Ap {
+            ssid: bss_info.ssid.to_ssid_str_not_redactable(),
+            rssi_dbm: bss_info.rssi_dbm,
+        })),
     }
 }
 

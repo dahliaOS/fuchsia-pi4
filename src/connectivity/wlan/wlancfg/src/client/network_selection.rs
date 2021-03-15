@@ -126,6 +126,8 @@ impl InternalBss<'_> {
             fidl_policy::SecurityType::Wpa2 => "WPA2",
             fidl_policy::SecurityType::Wpa3 => "WPA3",
         };
+        // TODO(fxbug.dev/71906): Hashing SSID and BSSID should be removed once log redaction
+        // retains consistent identifiers across Inspect and syslog.
         info!(
             "{}({:4}), {}, {:>4}dBm, chan {:8}, score {:4},{}{}{}",
             hasher.hash_ssid(&self.network_info.network_id.ssid),
