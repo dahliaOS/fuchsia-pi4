@@ -233,6 +233,10 @@ spn_styling_group_layer(spn_styling_t              styling,
 static void
 spn_convert_colors_4(float const * const fp32v4, uint32_t * const u32v2)
 {
+// HACK: fp16 does not seem to be supported by the riscv64 toolchain
+// lld: error: undefined symbol: __gnu_f2h_ieee
+// We are not at the point where we need graphics anyway :)
+#ifndef __riscv
 #if 0
 
   //
@@ -258,6 +262,7 @@ spn_convert_colors_4(float const * const fp32v4, uint32_t * const u32v2)
   pun.fp16[2] = (__fp16)fp32v4[2];
   pun.fp16[3] = (__fp16)fp32v4[3];
 
+#endif
 #endif
 }
 

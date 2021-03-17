@@ -90,6 +90,9 @@ containers::array_view<NGUnwindRegisterMap> GetNGUnwindGeneralRegisters() {
       {UNW_AARCH64_X28, RegisterID::kARMv8_x28},
       {UNW_AARCH64_X29, RegisterID::kARMv8_x29},
       {UNW_AARCH64_X30, RegisterID::kARMv8_lr}};
+#elif defined(__riscv)
+  static NGUnwindRegisterMap kGeneral[] = {
+      {0, RegisterID::kRISCV64_placeholder}};
 #else
 #error Write for your platform
 #endif

@@ -14,7 +14,7 @@ using zx_status_t = int32_t;
 
 constexpr uint32_t kProtocolVersion = 31;
 
-enum class Arch : uint32_t { kUnknown = 0, kX64, kArm64 };
+enum class Arch : uint32_t { kUnknown = 0, kX64, kArm64, kRiscv64 };
 
 #pragma pack(push, 8)
 

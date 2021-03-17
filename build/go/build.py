@@ -41,7 +41,7 @@ def main():
     parser.add_argument(
         '--current-cpu',
         help='Target architecture.',
-        choices=['x64', 'arm64'],
+        choices=['x64', 'arm64', 'riscv64'],
         required=True)
     parser.add_argument(
         '--current-os',
@@ -114,6 +114,7 @@ def main():
     goarch = {
         'x64': 'amd64',
         'arm64': 'arm64',
+        'riscv64': 'riscv64',
     }[args.current_cpu]
     goos = {
         'fuchsia': 'fuchsia',
@@ -204,6 +205,8 @@ def main():
         cflags.extend(['--sysroot', args.sysroot])
     if args.target:
         cflags.extend(['-target', args.target])
+    if args.current_cpu == 'riscv64':
+        cflags.extend(['-mno-relax'])
 
     ldflags = cflags[:]
     if args.current_os == 'linux':
