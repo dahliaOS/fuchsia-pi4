@@ -6,6 +6,7 @@ library fuchsia.wlan.ap.policy;
 
 using fuchsia.net;
 using fuchsia.wlan.common;
+using fuchsia.wlan.ieee80211 as ieee80211;
 
 [Discoverable]
 protocol ApPolicy {
@@ -14,7 +15,7 @@ protocol ApPolicy {
 
 protocol Requests {
     StartAccessPoint(AccessPointParams params) -> (Status request_status);
-    StopAccessPoint(bytes ssid) -> (Status request_status);
+    StopAccessPoint(bytes:ieee80211.MAX_SSID_LEN ssid) -> (Status request_status);
 };
 
 protocol StateUpdates {
@@ -28,7 +29,7 @@ struct Status {
 };
 
 struct AccessPointParams {
-    bytes ssid; // 0 - 32 bytes
+    bytes:ieee80211.MAX_SSID_LEN ssid;
     bytes passphrase; // 8 - 63 char
     ApBand band;
 };
