@@ -9,54 +9,48 @@ using fuchsia.wlan.common;
 
 [Discoverable]
 protocol ApPolicy {
-  OpenControlChannels(Requests requests, request<StateUpdates> updates);
+    OpenControlChannels(Requests requests, request<StateUpdates> updates);
 };
-
 
 protocol Requests {
-  StartAccessPoint(AccessPointParams params) -> (Status request_status);
-  StopAccessPoint(bytes ssid) -> (Status request_status);
+    StartAccessPoint(AccessPointParams params) -> (Status request_status);
+    StopAccessPoint(bytes ssid) -> (Status request_status);
 };
 
-
 protocol StateUpdates {
-  -> OnAccessPointStatusChange(ApState ap_state, ApState previous_ap_state);
-  -> OnAccessPointClientUpdate(ApBand ap_band, int32 frequency, vector<ApClient> clients);
+    -> OnAccessPointStatusChange(ApState ap_state, ApState previous_ap_state);
+    -> OnAccessPointClientUpdate(ApBand ap_band, int32 frequency, vector<ApClient> clients);
 };
 
 struct Status {
-  fuchsia.wlan.common.RequestStatus status;
-  string message;
+    fuchsia.wlan.common.RequestStatus status;
+    string message;
 };
-
 
 struct AccessPointParams {
-  bytes ssid; // 0 - 32 bytes
-  bytes passphrase; // 8 - 63 char
-  ApBand band;
+    bytes ssid; // 0 - 32 bytes
+    bytes passphrase; // 8 - 63 char
+    ApBand band;
 };
-
 
 enum ApBand {
-  /// allows the band to switch depending on device
-  /// operating mode and environment
-  BAND_ANY = 0;
-  /// restricted to 2.4ghz bands only
-  BAND_2_4GHZ = 1;
-  /// restricted to 5ghz bands only
-  BAND_5GHZ = 2;
+    /// allows the band to switch depending on device
+    /// operating mode and environment
+    BAND_ANY = 0;
+    /// restricted to 2.4ghz bands only
+    BAND_2_4GHZ = 1;
+    /// restricted to 5ghz bands only
+    BAND_5GHZ = 2;
 };
-
 
 enum ApState {
-  /// confirmation that the softap interface will attempt to be
-  /// created (this can take seconds on some devices)
-  STARTING = 0;
-  UP = 1;
-  DOWN = 2;
+    /// confirmation that the softap interface will attempt to be
+    /// created (this can take seconds on some devices)
+    STARTING = 0;
+    UP = 1;
+    DOWN = 2;
 };
 
-
 struct ApClient {
-  fuchsia.net.MacAddress mac;
+    fuchsia.net.MacAddress mac;
 };
