@@ -6,3 +6,6 @@ library fuchsia.wlan.ieee80211;
 
 /// IEEE Std 802.11-2016, 9.4.2.2
 const uint8 MAX_SSID_LEN = 32;
+
+/// IEEE Std 802.11-2016, 9.4.2.99
+const uint8 MAX_MESH_ID_LEN = 32;
