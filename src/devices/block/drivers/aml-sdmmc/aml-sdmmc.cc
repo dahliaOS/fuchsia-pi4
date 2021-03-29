@@ -193,7 +193,7 @@ zx_status_t AmlSdmmc::WaitForInterrupt(sdmmc_req_t* req) {
 
   if (rxd_err) {
     if (req->probe_tuning_cmd) {
-      AML_SDMMC_TRACE("RX Data CRC Error cmd%d, status=0x%x, RXD_ERR:%d", req->cmd_idx,
+      AML_SDMMC_ERROR("RX Data CRC Error cmd%d, status=0x%x, RXD_ERR:%d", req->cmd_idx,
                       status_irq.reg_value(), rxd_err);
     } else {
       AML_SDMMC_ERROR("RX Data CRC Error cmd%d, status=0x%x, RXD_ERR:%d", req->cmd_idx,
@@ -213,7 +213,7 @@ zx_status_t AmlSdmmc::WaitForInterrupt(sdmmc_req_t* req) {
   }
   if (status_irq.resp_err()) {
     if (req->probe_tuning_cmd) {
-      AML_SDMMC_TRACE("Response CRC Error, cmd%d, status=0x%x", req->cmd_idx,
+      AML_SDMMC_ERROR("Response CRC Error, cmd%d, status=0x%x", req->cmd_idx,
                       status_irq.reg_value());
     } else {
       AML_SDMMC_ERROR("Response CRC Error, cmd%d, status=0x%x", req->cmd_idx,
@@ -224,7 +224,7 @@ zx_status_t AmlSdmmc::WaitForInterrupt(sdmmc_req_t* req) {
   if (status_irq.resp_timeout()) {
     // When mmc dev_ice is being probed with SDIO command this is an expected failure.
     if (req->probe_tuning_cmd) {
-      AML_SDMMC_TRACE("No response received before time limit, cmd%d, status=0x%x", req->cmd_idx,
+      AML_SDMMC_ERROR("No response received before time limit, cmd%d, status=0x%x", req->cmd_idx,
                       status_irq.reg_value());
     } else {
       AML_SDMMC_ERROR("No response received before time limit, cmd%d, status=0x%x", req->cmd_idx,
@@ -812,6 +812,7 @@ AmlSdmmc::TuneWindow AmlSdmmc::TuneDelayParam(fbl::Span<const uint8_t> tuning_bl
 }
 
 void AmlSdmmc::SetAdjDelay(uint32_t adj_delay) {
+  
   if (board_config_.version_3) {
     AmlSdmmcAdjust::Get().ReadFrom(&mmio_).set_adj_delay(adj_delay).set_adj_fixed(1).WriteTo(
         &mmio_);
@@ -822,6 +823,7 @@ void AmlSdmmc::SetAdjDelay(uint32_t adj_delay) {
 }
 
 void AmlSdmmc::SetDelayLines(uint32_t delay) {
+  
   if (board_config_.version_3) {
     AmlSdmmcDelay1::Get()
         .ReadFrom(&mmio_)
