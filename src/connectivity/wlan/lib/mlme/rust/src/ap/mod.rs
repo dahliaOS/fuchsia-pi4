@@ -17,7 +17,7 @@ use {
     },
     banjo_fuchsia_hardware_wlan_mac as banjo_wlan_mac, fidl_fuchsia_wlan_internal as fidl_internal,
     fidl_fuchsia_wlan_mlme as fidl_mlme, fuchsia_zircon as zx,
-    log::{error, info, log},
+    log::{error, info, log, warn},
     std::fmt,
     wlan_common::{
         mac::{self, Bssid, CapabilityInfo, MacAddr},
@@ -287,6 +287,10 @@ impl Ap {
         // Rogue frames received from the wrong channel
         if let Some(rx_info) = rx_info {
             if rx_info.chan.primary != bss.channel {
+                warn!(
+                    "Received frame from channel {:?} != bss channel {:?}. Incoming frame dropped",
+                    rx_info.chan.primary, bss.channel,
+                );
                 return;
             }
         }

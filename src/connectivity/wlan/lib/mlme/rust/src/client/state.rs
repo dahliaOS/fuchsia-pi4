@@ -850,6 +850,11 @@ impl States {
     ) -> States {
         // For now, silently drop all frames when we are off channel.
         if !sta.is_on_channel() {
+            warn!(
+                "Associated but current channel {:?} != main channel {:?}. Incoming frame dropped.",
+                sta.ctx.device.channel(),
+                sta.channel_state.main_channel
+            );
             return self;
         }
 
@@ -1004,7 +1009,7 @@ impl States {
             States::Associated(state) if sta.is_on_channel() => state.on_eth_frame(sta, frame),
             States::Associated(_state) => Err(Error::Status(
                 format!(
-                    "Associated but current channel {:?} != main channel {:?}. Ethernet dropped",
+                    "Associated but current channel {:?} != main channel {:?}. Outgoing ethernet frame dropped",
                     sta.ctx.device.channel(),
                     sta.channel_state.main_channel
                 ),
