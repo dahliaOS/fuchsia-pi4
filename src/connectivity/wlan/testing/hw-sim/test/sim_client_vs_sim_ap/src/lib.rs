@@ -10,7 +10,6 @@ use {
     log::{info, warn},
     pin_utils::pin_mut,
     std::panic,
-    wlan_common::bss::Protection::Wpa2Personal,
     wlan_hw_sim::*,
 };
 
@@ -87,23 +86,7 @@ async fn verify_client_connects_to_ap(
     let client_fut = client_helper.run_until_complete_or_timeout(
         10.seconds(),
         "connecting to AP",
-        |event| match event {
-            WlantapPhyEvent::SetChannel { args } => {
-                if args.chan.primary == WLANCFG_DEFAULT_AP_CHANNEL.primary {
-                    // TODO(fxbug.dev/35337): use beacon frame from configure_beacon
-                    send_beacon(
-                        &WLANCFG_DEFAULT_AP_CHANNEL,
-                        &AP_MAC_ADDR,
-                        SSID,
-                        &Wpa2Personal,
-                        &client_proxy,
-                        0,
-                    )
-                    .expect("sending beacon");
-                }
-            }
-            evt => packet_forwarder(&ap_proxy, "frame client -> ap")(evt),
-        },
+        packet_forwarder(&ap_proxy, "frame client -> ap"),
         connect_fut,
     );
 
