@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 use {
-    fidl_fuchsia_wlan_common as fidl_common, fidl_fuchsia_wlan_policy as fidl_policy,
+    fidl_fuchsia_wlan_policy as fidl_policy,
     fidl_fuchsia_wlan_tap::{WlantapPhyEvent, WlantapPhyProxy},
     fuchsia_zircon::DurationNum as _,
     futures::{channel::oneshot, join, TryFutureExt},
@@ -34,26 +34,6 @@ fn packet_forwarder<'a>(
     }
 }
 
-// Connect stage
-
-async fn initiate_connect(
-    client_controller: &fidl_policy::ClientControllerProxy,
-    mut update_stream: fidl_policy::ClientStateUpdatesRequestStream,
-    config: &mut fidl_policy::NetworkIdentifier,
-    sender: oneshot::Sender<()>,
-) {
-    // Issue the connect request.
-    let response = client_controller.connect(config).await.expect("connecting via wlancfg");
-    assert_eq!(response, fidl_common::RequestStatus::Acknowledged);
-
-    // Monitor the update stream for the connected notification.
-    wait_until_client_state(&mut update_stream, |update| {
-        has_ssid_and_state(update, SSID, fidl_policy::ConnectionState::Connected)
-    })
-    .await;
-    sender.send(()).expect("done connecting, sending message to the other future");
-}
-
 /// At this stage client communicates with AP only, in order to establish connection
 async fn verify_client_connects_to_ap(
     client_proxy: &WlantapPhyProxy,
@@ -61,7 +41,7 @@ async fn verify_client_connects_to_ap(
     client_helper: &mut test_utils::TestHelper,
     ap_helper: &mut test_utils::TestHelper,
 ) {
-    let (client_controller, update_stream) = wlan_hw_sim::init_client_controller().await;
+    let (client_controller, mut update_stream) = wlan_hw_sim::init_client_controller().await;
 
     let (sender, connect_confirm_receiver) = oneshot::channel();
     let network_config = NetworkConfigBuilder::protected(
@@ -72,15 +52,19 @@ async fn verify_client_connects_to_ap(
 
     // The credentials need to be stored before attempting to connect.
     client_controller
-        .save_network(fidl_policy::NetworkConfig::from(network_config.clone()))
+        .save_network(fidl_policy::NetworkConfig::from(network_config))
         .await
         .expect("sending save network request")
         .expect("saving network config.");
 
-    let network_config = fidl_policy::NetworkConfig::from(network_config);
-    let mut network_id = network_config.id.unwrap();
-
-    let connect_fut = initiate_connect(&client_controller, update_stream, &mut network_id, sender);
+    let connect_fut = async {
+        // Monitor the update stream for the connected notification.
+        wait_until_client_state(&mut update_stream, |update| {
+            has_ssid_and_state(update, SSID, fidl_policy::ConnectionState::Connected)
+        })
+        .await;
+        sender.send(()).expect("done connecting, sending message to the other future");
+    };
     pin_mut!(connect_fut);
 
     let client_fut = client_helper.run_until_complete_or_timeout(
