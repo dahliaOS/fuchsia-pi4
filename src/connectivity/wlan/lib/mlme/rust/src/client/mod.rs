@@ -28,7 +28,7 @@ use {
     channel_scheduler::ChannelScheduler,
     fidl_fuchsia_wlan_ieee80211 as fidl_ieee80211, fidl_fuchsia_wlan_internal as fidl_internal,
     fidl_fuchsia_wlan_mlme as fidl_mlme, fuchsia_zircon as zx,
-    log::{error, warn},
+    log::{error, info, warn},
     scanner::Scanner,
     state::States,
     static_assertions::assert_eq_size,
@@ -417,6 +417,7 @@ impl Client {
                 },
             },
         })?;
+        info!("Sending POWER STATE frame: ({} bytes)", bytes_written);
         let out_buf = OutBuf::from(buf, bytes_written);
         ctx.device
             .send_wlan_frame(out_buf, TxFlags::NONE)
@@ -618,6 +619,7 @@ impl<'a> BoundClient<'a> {
                 ),
             },
         })?;
+        info!("Sending KEEP ALIVE RESP frame: ({} bytes)", bytes_written);
         let out_buf = OutBuf::from(buf, bytes_written);
         self.ctx
             .device
@@ -783,6 +785,7 @@ impl<'a> BoundClient<'a> {
                 },
             },
         })?;
+        info!("Sending PS POLL frame: ({} bytes)", bytes_written);
         let out_buf = OutBuf::from(buf, bytes_written);
         self.send_mgmt_or_ctrl_frame(out_buf)
             .map_err(|s| Error::Status(format!("error sending PS-Poll frame"), s))
