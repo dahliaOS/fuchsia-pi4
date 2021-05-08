@@ -22,8 +22,8 @@
 
 #elif defined(__riscv)
 
-#define ZX_TLS_STACK_GUARD_OFFSET (-0x10)
-#define ZX_TLS_UNSAFE_SP_OFFSET (-0x8)
+#define ZX_TLS_STACK_GUARD_OFFSET (-0x20)
+#define ZX_TLS_UNSAFE_SP_OFFSET (-0x18)
 
 #else
 
