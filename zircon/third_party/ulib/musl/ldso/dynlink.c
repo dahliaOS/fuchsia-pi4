@@ -139,7 +139,7 @@ static jmp_buf* rtld_fail;
 static pthread_rwlock_t lock;
 static struct r_debug debug;
 static struct tls_module* tls_tail;
-static size_t tls_cnt, tls_offset = 16, tls_align = MIN_TLS_ALIGN;
+static size_t tls_cnt, tls_offset = 0, tls_align = MIN_TLS_ALIGN;
 static size_t static_tls_cnt;
 static pthread_mutex_t init_fini_lock = {
     ._m_attr = PTHREAD_MUTEX_MAKE_ATTR(PTHREAD_MUTEX_RECURSIVE, PTHREAD_PRIO_NONE)};
@@ -624,7 +624,7 @@ __NO_SAFESTACK NO_ASAN static void do_relocs(struct dso* dso, size_t* rel, size_
             longjmp(*rtld_fail, 1);
           }
           new[0] = def.dso->tls_id;
-          new[1] = tls_val + addend;
+          new[1] = tls_val + addend - DTP_OFFSET;
           reloc_addr[0] = (size_t)__tlsdesc_dynamic;
           reloc_addr[1] = (size_t) new;
         } else {
@@ -2451,7 +2451,7 @@ static void* do_dlsym(struct dso* p, const char* s, void* ra) {
     if (!def.sym)
       goto failed;
     if ((def.sym->st_info & 0xf) == STT_TLS)
-      return __tls_get_addr((size_t[]){def.dso->tls_id, def.sym->st_value});
+      return __tls_get_addr((size_t[]){def.dso->tls_id, def.sym->st_value-DTP_OFFSET});
     return laddr(def.dso, def.sym->st_value);
   }
   if (__dl_invalid_handle(p))

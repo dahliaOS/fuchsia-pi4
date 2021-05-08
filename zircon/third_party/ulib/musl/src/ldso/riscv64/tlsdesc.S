@@ -7,6 +7,7 @@
 .type __tlsdesc_static,@function
 __tlsdesc_static:
   ebreak
+  j __tlsdesc_static
   ret
 .hidden __tls_get_new
 
@@ -23,4 +24,5 @@ __tlsdesc_static:
 .type __tlsdesc_dynamic,@function
 __tlsdesc_dynamic:
   ebreak
+  j __tlsdesc_dynamic
   ret
