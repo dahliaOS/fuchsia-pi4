@@ -48,7 +48,7 @@ zx_status_t platform_set_oneshot_timer(zx_time_t deadline) {
   // convert interval to ticks
   const affine::Ratio time_to_ticks = platform_get_ticks_to_time_ratio().Inverse();
   const uint64_t ticks = time_to_ticks.Scale(deadline) + 1;
-  sbi_set_timer(riscv64_get_time() + ticks);
+  sbi_set_timer(ticks);
 
   return ZX_OK;
 }
