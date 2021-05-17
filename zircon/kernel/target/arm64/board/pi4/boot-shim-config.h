@@ -4,16 +4,6 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT
 #define HAS_DEVICE_TREE 0
-static const zbi_cpu_config_t cpu_config = {
-    .cluster_count = 1,  // enable both clusters when clock tree can upclock cluster 1
-    .clusters =
-        {
-            {
-                .cpu_count = 4,
-            },
-        },
-};
-
 static const zbi_mem_range_t mem_config[] = {
     {
         .paddr =  0x000000000,
@@ -27,14 +17,10 @@ static const zbi_mem_range_t mem_config[] = {
     },
 };
 
-static const dcfg_arm_generic_timer_driver_t timer_driver = {
-    .irq_phys = 30, .irq_virt = 27,
-    //.freq_override = 8333333,
-};
 static const zbi_platform_id_t platform_id = {
-    .vid = PDEV_VID_MEDIATEK,
-    .pid = PDEV_PID_MEDIATEK_8167S_REF,
-    .board_name = "mt8167s_ref",
+    .vid = PDEV_VID_RASPBERRY,
+    .pid = PDEV_PID_RASPBERRY_PI_4,
+    .board_name = "Raspberry-Pi-4",
 };
 static void add_cpu_topology(zbi_header_t* zbi) {
 #define TOPOLOGY_CPU_COUNT 4
@@ -75,16 +61,7 @@ static void append_board_boot_item(zbi_header_t* bootdata) {
                    sizeof(gicv2_driver));
   append_boot_item(bootdata, ZBI_TYPE_KERNEL_DRIVER, KDRV_ARM_PSCI, &psci_driver,
                    sizeof(psci_driver));
-  append_boot_item(bootdata, ZBI_TYPE_KERNEL_DRIVER, KDRV_ARM_GENERIC_TIMER, &timer_driver,
-                   sizeof(timer_driver));
-  // append_boot_item doesn't support zero-length payloads, so we have to call zbi_create_entry
-  // directly.
-  uint8_t* new_section = NULL;
-  zbi_result_t result = zbi_create_entry(bootdata, SIZE_MAX, ZBI_TYPE_KERNEL_DRIVER,
-                                         KDRV_AS370_POWER, 0, 0, (void**)&new_section);
-  if (result != ZBI_RESULT_OK) {
-    fail("zbi_create_entry failed\n");
-  }
+
   // add platform ID
   append_boot_item(bootdata, ZBI_TYPE_PLATFORM_ID, 0, &platform_id, sizeof(platform_id));
 }
